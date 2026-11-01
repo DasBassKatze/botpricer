@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111b2b">
+  <title>BotPricer — управление ценами</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%233fd7aa'/%3E%3Ctext x='11' y='29' font-size='29' fill='%23111b2b'%3Eb%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="BotPricer главная"><span class="brand-icon">b.</span><span>BotPricer<small>УПРАВЛЕНИЕ ЦЕНАМИ</small></span></a>
+    <div class="nav-label">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+    <nav aria-label="Главное меню">
+      <button data-page="overview" class="nav active" aria-label="Обзор"><span aria-hidden="true">◫</span> Обзор</button>
+      <button data-page="sources" class="nav" aria-label="Каналы-источники"><span aria-hidden="true">⌁</span> Каналы-источники <b id="source-count">0</b></button>
+      <button data-page="catalog" class="nav" aria-label="Товары и цены"><span aria-hidden="true">▦</span> Товары и цены</button>
+      <button data-page="settings" class="nav" aria-label="Настройки"><span aria-hidden="true">⚙</span> Настройки</button>
+      <button data-page="connection" class="nav" aria-label="Подключение Telegram"><span aria-hidden="true">↗</span> Подключение Telegram</button>
+      <button data-page="parser" class="nav" aria-label="Проверка прайса"><span aria-hidden="true">≋</span> Проверка прайса</button>
+      <button data-page="history" class="nav" aria-label="История обновлений"><span aria-hidden="true">◷</span> История обновлений</button>
+    </nav>
+    <div class="sidebar-bottom"><span class="status-dot"></span><div>Локальная панель<small>Данные хранятся на этом ПК</small></div><span class="version">v0.1</span></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><span class="breadcrumb">Рабочее пространство</span><span class="slash">/</span><span id="breadcrumb">Обзор</span></div><span class="local-badge">● localhost</span></header>
+    <div class="workspace">
+      <section id="page-overview" class="page">
+        <div class="page-heading"><div><div class="eyebrow">ВАШ КАНАЛ ПОД КОНТРОЛЕМ</div><h1>Обзор</h1><p>Источники, актуальные цены и публикации — в одном месте.</p></div><button id="sync" class="primary">↻ Обновить сейчас</button></div>
+        <div id="setup-banner" class="setup-banner"><div class="banner-icon">↗</div><div><strong>Начнём с подключения Telegram</strong><p>Подключите аккаунт для чтения каналов и бота для публикаций.</p></div><button class="light" data-go="connection">Подключить →</button></div>
+        <div class="stats"><article><span>Каналы-источники</span><strong id="stat-sources">0</strong><small id="stat-enabled">0 активных</small></article><article><span>Товары в наличии</span><strong id="stat-products">0</strong><small>По актуальным прайсам</small></article><article><span>Публикации</span><strong id="stat-posts">0</strong><small>В подключённых каналах</small></article><article><span>Требуют внимания</span><strong id="stat-review">0</strong><small>Строки прайсов и публикации</small></article></div>
+        <div class="overview-grid"><article class="panel"><div class="panel-heading"><h2>Автоматизация</h2><span id="automation-badge" class="badge">Выключена</span></div><div class="schedule-display"><span class="clock-icon">◷</span><div><strong id="schedule-time">09:00</strong><small id="schedule-zone">Каждый день · Europe/Moscow</small></div></div><div class="key-value"><span>Канал публикации</span><strong id="target-label">Не указан</strong></div><div class="key-value"><span>Автопубликация</span><strong id="publish-label">Выключена</strong></div><div class="panel-footer"><button class="text-button" data-go="settings">Настроить расписание →</button><button id="pause" class="subtle">Пауза публикаций</button></div></article><article class="panel"><div class="panel-heading"><h2>Последнее обновление</h2><span id="run-badge" class="badge">Ожидает запуска</span></div><div id="last-run" class="empty compact"><span class="empty-icon">↻</span><strong>Обновлений пока нет</strong><p>Добавьте источники и запустите первую проверку.</p></div><div class="panel-footer"><button class="text-button" data-go="history">Вся история →</button></div></article></div>
+        <article class="panel"><div class="panel-heading"><div><h2>Каналы-источники</h2><p>Прайсы, из которых формируются ваши предложения.</p></div><button class="subtle" data-go="sources">Управлять каналами →</button></div><div id="overview-sources"></div></article>
+      </section>
+      <section id="page-sources" class="page" hidden>
+        <div class="page-heading"><div><div class="eyebrow">ПОСТАВЩИКИ</div><h1>Каналы-источники</h1><p>Добавляйте каналы и выбирайте, как обрабатывать их прайсы.</p></div></div>
+        <form id="source-form" class="panel form-panel"><h2 id="source-form-title">Добавить канал</h2><input id="source-id" type="hidden"><div class="form-grid"><label>Название<input id="source-title" required maxlength="100" placeholder="Поставщик Apple"></label><label>Адрес канала<input id="source-address" required maxlength="100" placeholder="@supplier или https://t.me/supplier"></label><label>Формат публикаций<select id="source-mode"><option value="incremental">Отдельные товары / изменения</option><option value="snapshot">Один полный прайс в сообщении</option></select></label><label>Срок актуальности, часов<input id="source-ttl" type="number" value="48" min="1" max="8760" required></label></div><p class="hint">Полный прайс должен содержать все позиции в одном сообщении. Закрытые каналы: вступите аккаунтом и укажите ID вида -100…</p><div class="form-actions"><button class="primary" type="submit">Сохранить канал</button><button class="subtle" type="button" id="source-cancel" hidden>Отмена</button></div></form>
+        <article class="panel"><div class="panel-heading"><h2>Ваши источники</h2></div><div id="sources-table"></div></article>
+      </section>
+      <section id="page-catalog" class="page" hidden>
+        <div class="page-heading"><div><div class="eyebrow">КАТАЛОГ</div><h1>Товары и цены</h1><p>Минимальная актуальная закупочная цена и ваша наценка.</p></div><button id="preview-posts" class="primary">Предпросмотр постов</button></div>
+        <article class="panel"><div class="panel-heading"><h2>Предложения</h2><input id="search" class="search" placeholder="Поиск по названию" aria-label="Поиск товаров"></div><div id="catalog-table"></div></article>
+        <article class="panel"><div class="panel-heading"><h2>Публикации, требующие внимания</h2></div><div id="publication-reviews"></div></article>
+        <article class="panel"><div class="panel-heading"><h2>Нераспознанные строки</h2></div><div id="parse-reviews"></div></article>
+      </section>
+      <section id="page-settings" class="page" hidden>
+        <div class="page-heading"><div><div class="eyebrow">ПРАВИЛА РАБОТЫ</div><h1>Настройки</h1><p>Наценка, канал публикации и ежедневное обновление.</p></div></div>
+        <form id="settings-form">
+          <article class="panel form-panel"><h2>Цены и наценка</h2><div class="form-grid three"><label>Тип наценки<select name="markup_mode"><option value="fixed">Фиксированная сумма</option><option value="percent">Процент</option><option value="combined">Процент, но не ниже минимума</option></select></label><label>Наценка, ₽<input name="markup_fixed" type="number" min="0" max="10000000" step="0.01" required></label><label>Наценка, %<input name="markup_percent" type="number" min="0" max="1000" step="0.01" required></label><label>Минимум для комбинированной, ₽<input name="minimum_markup" type="number" min="0" max="10000000" step="0.01" required></label><label>Расходы на доставку, ₽<input name="delivery" type="number" min="0" max="10000000" step="0.01" required></label><label>Округлять вверх до, ₽<input name="round_to" type="number" min="1" max="100000" required></label></div><p class="hint">Пример расчёта: <strong id="price-example"></strong></p></article>
+          <article class="panel form-panel"><h2>Публикации</h2><div class="form-grid"><label>Ваш канал<input name="target_channel" placeholder="@my_channel"></label><label>Контакт для заказа<input name="contact" maxlength="150" placeholder="@your_username"></label><label>Порог изменения для проверки, %<input name="max_change_percent" type="number" min="0.01" max="1000" step="0.01" required></label></div><label class="switch-row"><input name="auto_publish" type="checkbox"><span><strong>Автоматически публиковать и обновлять посты</strong><small>Проверка источников и расчёт цен работают и без публикации.</small></span></label><button class="subtle" type="button" id="check-target">Проверить права бота в канале</button><p class="hint">Перед проверкой сохраните настройки. Новые товары публикуются, цены существующих карточек редактируются.</p></article>
+          <article class="panel form-panel"><h2>Расписание</h2><div class="form-grid"><label>Время обновления<input name="daily_time" type="time" required></label><label>Часовой пояс<input name="timezone" required placeholder="Europe/Moscow"></label><label>Период поиска сообщений, дней<input name="lookback_days" type="number" min="1" max="90" required></label><label>Лимит сообщений на канал<input name="scan_limit" type="number" min="10" max="5000" required></label></div><label class="switch-row"><input name="schedule_enabled" type="checkbox"><span><strong>Обновлять каждый день</strong><small>Если время пропущено, проверка запустится после открытия программы в тот же день.</small></span></label></article><div class="sticky-actions"><span id="settings-state">Настройки сохраняются на этом компьютере</span><button class="primary" type="submit">Сохранить настройки</button></div>
+        </form>
+      </section>
+      <section id="page-connection" class="page" hidden>
+        <div class="page-heading"><div><div class="eyebrow">ИНТЕГРАЦИЯ</div><h1>Подключение Telegram</h1><p>Аккаунт читает источники, бот публикует в вашем канале.</p></div></div>
+        <div id="connection-state" class="notice">Загрузка состояния…</div>
+        <form id="credentials-form" class="panel form-panel"><h2>1. Доступы</h2><p class="hint">API ID и API hash получите на <a href="https://my.telegram.org/apps" target="_blank" rel="noreferrer">my.telegram.org/apps</a>. Токен бота — у <a href="https://t.me/BotFather" target="_blank" rel="noreferrer">@BotFather</a>. Добавьте бота администратором своего канала.</p><div class="form-grid"><label>API ID<input name="api_id" type="number" min="1" placeholder="Введите один раз" autocomplete="off"></label><label>API hash<input name="api_hash" type="password" maxlength="32" placeholder="Пустое поле сохранит прежнее значение" autocomplete="new-password"></label><label class="wide">Токен бота<input name="bot_token" type="password" maxlength="200" placeholder="123456789:…" autocomplete="new-password"></label></div><div class="form-actions"><button class="primary" type="submit">Сохранить доступы</button></div><p class="hint">Секреты не показываются повторно. Они хранятся локально в папке data, которая исключена из Git.</p></form>
+        <article class="panel form-panel"><h2>2. Вход в аккаунт для чтения каналов</h2><form id="phone-form"><div class="form-grid"><label>Номер телефона<input name="phone" type="tel" placeholder="+79991234567" pattern="\+[0-9]{8,15}" required autocomplete="tel"></label></div><div class="form-actions"><button class="primary" type="submit">Получить код Telegram</button><button class="subtle" type="button" id="check-reader">Проверить подключение</button></div></form><form id="login-form" hidden><div class="form-grid"><label>Код из Telegram<input name="code" inputmode="numeric" maxlength="20" autocomplete="one-time-code"></label><label id="password-label" hidden>Пароль двухэтапной проверки<input name="password" type="password" maxlength="256" autocomplete="current-password"></label></div><div class="form-actions"><button class="primary" type="submit">Подтвердить вход</button></div></form><button id="logout" class="danger-text">Отключить аккаунт Telegram</button><p class="hint">Программа читает только добавленные вами каналы. Для закрытого источника аккаунт должен уже иметь доступ.</p></article>
+      </section>
+      <section id="page-parser" class="page" hidden>
+        <div class="page-heading"><div><div class="eyebrow">ПРОВЕРКА ФОРМАТА</div><h1>Проверка прайса</h1><p>Вставьте сообщение поставщика, чтобы проверить распознавание без публикации.</p></div></div>
+        <form id="parser-form" class="panel form-panel"><label>Текст сообщения<textarea name="text" rows="8" maxlength="100000" required placeholder="iPhone 15 128 Black US — 61 000 ₽&#10;iPhone 15 256 Blue EU — 68 500 ₽"></textarea></label><p class="hint">Каждая строка: полное название товара и цена в рублях. Модель, память, цвет и регион указывайте в одной строке. Фото, PDF и прайсы с общими заголовками пока не распознаются.</p><div class="form-actions"><button class="primary" type="submit">Проверить распознавание</button></div></form><div id="parser-result"></div>
+      </section>
+      <section id="page-history" class="page" hidden>
+        <div class="page-heading"><div><div class="eyebrow">ЖУРНАЛ</div><h1>История обновлений</h1><p>Результаты последних двадцати запусков.</p></div></div><article class="panel"><div id="runs-list"></div></article>
+      </section>
+      <footer>BotPricer <span>Чтение → проверка → наценка → публикация</span></footer>
+    </div>
+  </main>
+  <div id="toast" role="status" hidden></div>
+  <dialog id="preview-dialog"><div class="panel-heading"><h2>Предпросмотр публикаций</h2><button id="close-preview" class="subtle">Закрыть</button></div><div id="preview-content"></div></dialog>
+</body>
+</html>
