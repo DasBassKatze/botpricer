@@ -19,19 +19,19 @@ def safe_error(exc):
     if isinstance(exc, errors.FloodWaitError):
         return f'Лимит Telegram: повторите через {exc.seconds} сек.'
     if isinstance(exc, errors.PhoneCodeInvalidError):
-        return 'Неверный код Telegram'
+        return 'Код входа не подошёл. Проверьте последнее сообщение с кодом в Telegram и введите его ещё раз.'
     if isinstance(exc, errors.PhoneCodeExpiredError):
-        return 'Код истёк, запросите новый'
+        return 'Срок действия кода закончился. В шаге 2 нажмите «Получить код Telegram» и введите новый код.'
     if isinstance(exc, errors.PasswordHashInvalidError):
-        return 'Неверный пароль двухэтапной проверки'
+        return 'Пароль не подошёл. Нужен облачный пароль двухэтапной проверки Telegram, а не код из сообщения.'
     if isinstance(exc, errors.PhoneNumberInvalidError):
-        return 'Неверный номер телефона'
+        return 'Проверьте номер телефона: нужен номер вашего аккаунта Telegram с кодом страны, например +79991234567.'
     if isinstance(exc, (errors.ChannelPrivateError, errors.ChatAdminRequiredError)):
-        return 'Нет доступа к каналу. Проверьте участие аккаунта и права'
+        return 'Аккаунт не может открыть канал. Проверьте адрес и откройте этот канал в Telegram с того же аккаунта. Для закрытого канала сначала нужно вступить.'
     if isinstance(exc, errors.AuthKeyUnregisteredError):
-        return 'Сессия Telegram отозвана. Подключите аккаунт заново'
+        return 'Telegram завершил вход в программу. Откройте «Подключение Telegram» и войдите снова по коду в шаге 2.'
     if isinstance(exc, (httpx.HTTPError, OSError, asyncio.TimeoutError)):
-        return 'Ошибка соединения с Telegram. Проверьте сеть и повторите'
+        return 'Не удалось соединиться с Telegram. Проверьте интернет и доступ к Telegram на этом компьютере, затем повторите действие.'
     return 'Ошибка Telegram (' + type(exc).__name__ + ')'
 
 
@@ -48,7 +48,7 @@ async def resolve_channel(client, address):
         async for dialog in client.iter_dialogs():
             if dialog.id == int(address):
                 return dialog.entity
-        raise TelegramProblem('Закрытый канал не найден среди каналов аккаунта') from None
+        raise TelegramProblem('Канал с таким ID не найден в аккаунте. Проверьте ID и убедитесь, что подключённый аккаунт уже вступил в этот канал.') from None
 
 
 class Reader:
@@ -63,7 +63,7 @@ class Reader:
         if self.client is None:
             creds = self.db.credentials()
             if not creds.get('api_id') or not creds.get('api_hash'):
-                raise TelegramProblem('Сначала сохраните API ID и API hash')
+                raise TelegramProblem('Откройте «Подключение Telegram» и сохраните API ID и API hash в шаге 1. Затем войдите в аккаунт в шаге 2.')
             self.client = TelegramClient(str(self.data_dir / 'reader'), int(creds['api_id']), creds['api_hash'],
                                          flood_sleep_threshold=20, request_retries=2, connection_retries=2)
         if not self.client.is_connected():
@@ -87,7 +87,7 @@ class Reader:
         async with self.lock:
             client = await self.get_client()
             if not self.phone or not self.code_hash:
-                raise TelegramProblem('Сначала запросите код')
+                raise TelegramProblem('В шаге 2 нажмите «Получить код Telegram». После этого введите присланный код.')
             try:
                 if password:
                     await client.sign_in(password=password)
@@ -113,7 +113,7 @@ class Reader:
     async def fetch(self, address, since: datetime, limit: int, known_ids):
         client = await self.get_client()
         if not await client.is_user_authorized():
-            raise TelegramProblem('Войдите в Telegram в разделе «Подключение»')
+            raise TelegramProblem('Откройте «Подключение Telegram» и выполните вход по номеру телефона в шаге 2.')
         entity = await resolve_channel(client, address)
         if not getattr(entity, 'broadcast', False):
             raise TelegramProblem('Источник должен быть Telegram-каналом')
@@ -124,7 +124,7 @@ class Reader:
                 reached_end = True
                 break
             if len(collected) >= limit:
-                raise TelegramProblem('Достигнут лимит сообщений. Увеличьте лимит или уменьшите период проверки')
+                raise TelegramProblem('Превышен лимит сообщений за проверку. В «Настройках» увеличьте «Сколько сообщений читать за проверку» или уменьшите «За сколько дней искать новые прайсы».')
             collected[message.id] = message
         else:
             reached_end = True
@@ -152,7 +152,7 @@ class Publisher:
     async def call(self, method, payload):
         token = self.db.credentials().get('bot_token')
         if not token:
-            raise TelegramProblem('Сохраните токен бота в разделе «Подключение»')
+            raise TelegramProblem('Откройте «Подключение Telegram» и сохраните токен из ответа BotFather в шаге 1.')
         for attempt in range(2):
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
@@ -172,21 +172,21 @@ class Publisher:
             if code >= 500:
                 raise DeliveryUncertain('Telegram не подтвердил операцию. Проверьте канал')
             descriptions = {400: 'Проверьте канал, ID сообщения и формат публикации',
-                            401: 'Токен бота неверен или отозван',
-                            403: 'Боту недоступен канал или недостаточно прав',
+                            401: 'Токен бота не работает. Получите действующий токен у BotFather и сохраните его в «Подключении Telegram».',
+                            403: 'Бот не может работать с каналом. Проверьте его адрес в настройках и добавьте бота администратором с правом публикации сообщений.',
                             429: f'Лимит Telegram, повторите через {wait} сек.'}
             raise TelegramProblem(descriptions.get(code, f'Ошибка Bot API: {code}'))
 
     async def check(self, target):
         if not target:
-            raise TelegramProblem('Укажите канал для публикаций в настройках')
+            raise TelegramProblem('Откройте «Настройки», заполните поле «Ваш канал для объявлений» и сохраните настройки.')
         me = await self.call('getMe', {})
         chat = await self.call('getChat', {'chat_id': target})
         member = await self.call('getChatMember', {'chat_id': target, 'user_id': me['id']})
         if chat.get('type') != 'channel':
             raise TelegramProblem('Для публикации нужен канал')
         if member.get('status') != 'administrator' or not member.get('can_post_messages'):
-            raise TelegramProblem('Добавьте бота администратором с правом публикации сообщений')
+            raise TelegramProblem('В Telegram откройте управление вашим каналом, добавьте своего бота в администраторы и разрешите публикацию сообщений. Затем повторите проверку прав.')
         return {'bot': me.get('username'), 'channel': chat.get('title'), 'channel_id': chat['id']}
 
     async def send(self, target, body):

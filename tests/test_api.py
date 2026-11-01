@@ -71,7 +71,9 @@ def test_settings_validation_and_pause(tmp_path):
     with client:
         settings = client.get('/api/settings').json()
         settings['daily_time'] = '99:99'
-        assert client.put('/api/settings', json=settings).status_code == 422
+        response = client.put('/api/settings', json=settings)
+        assert response.status_code == 422
+        assert 'Время проверки цен' in response.json()['detail']
         settings['daily_time'] = '10:30'
         settings['auto_publish'] = True
         assert client.put('/api/settings', json=settings).status_code == 422

@@ -49,34 +49,34 @@ def parse_text(text: str) -> tuple[list[ParsedItem], list[dict]]:
         if not line:
             continue
         if re.search(r'(?:[—–=:|]\s*-\s*\d|\s-\d)', line):
-            rejected.append({'line': index, 'text': line, 'reason': 'Отрицательная цена недопустима'})
+            rejected.append({'line': index, 'text': line, 'reason': 'Цена не может быть отрицательной. Проверьте знак минус перед суммой.'})
             continue
         if re.search(r'[$€]|\b(?:usd|eur|долл|евро)\b', line, re.I):
-            rejected.append({'line': index, 'text': line, 'reason': 'Поддерживаются только цены в рублях'})
+            rejected.append({'line': index, 'text': line, 'reason': 'Цена указана в другой валюте. Сейчас программа читает только рубли и не пересчитывает доллары или евро.'})
             continue
         unavailable = bool(re.search(r'нет в наличии|продан[оа]?|закончился|❌', line, re.I))
         preorder = bool(re.search(r'под заказ|предзаказ', line, re.I))
         cleaned = re.sub(r'\s*(?:[([]?\s*(?:нет в наличии|продан[оа]?|закончился|в наличии|под заказ|предзаказ)\s*[)\]]?|[✅❌])', '', line, flags=re.I).strip()
         match = PRICE.fullmatch(cleaned)
         if not match:
-            rejected.append({'line': index, 'text': line, 'reason': 'Формат: полное название — 61 000 ₽'})
+            rejected.append({'line': index, 'text': line, 'reason': 'Не удалось найти название и цену. Нужна отдельная строка вида: iPhone 15 128 Black US — 61 000 ₽.'})
             continue
         title = match['name'].strip(' —–-=:|')
         key = normalize(title)
         amount = re.sub(r'[ \u00a0\u202f.,]', '', match['price'])
         price = int(Decimal(amount + '.' + (match['cents'] or '00')) * 100)
         if len(key) < 3 or price <= 0 or price > 1_000_000_000_00:
-            rejected.append({'line': index, 'text': line, 'reason': 'Проверьте название и цену'})
+            rejected.append({'line': index, 'text': line, 'reason': 'Название или цена выглядят неверно. Укажите полное название и положительную цену в рублях.'})
             continue
         if re.search(r'\biphone\b', key) and not re.search(r'\b(?:64|128|256|512|1024|1tb|2tb)\b', key):
-            rejected.append({'line': index, 'text': line, 'reason': 'Для iPhone укажите память в строке товара'})
+            rejected.append({'line': index, 'text': line, 'reason': 'В этой строке не указан объём памяти iPhone. Добавьте его к названию, например: iPhone 15 128 Black US — 61 000 ₽.'})
             continue
         items.append(ParsedItem(title, key, price, not (unavailable or preorder), index))
     keys = [item.product_key for item in items]
     duplicates = {key for key in keys if keys.count(key) > 1}
     for item in items:
         if item.product_key in duplicates:
-            rejected.append({'line': item.line, 'text': item.title, 'reason': 'Две цены одной позиции в сообщении — требуется проверка'})
+            rejected.append({'line': item.line, 'text': item.title, 'reason': 'В одном сообщении найдены две цены для одинакового товара. Уточните название вариантов или оставьте одну действующую цену.'})
     return [item for item in items if item.product_key not in duplicates], rejected
 
 

@@ -12,15 +12,15 @@ def channel_address(value: str) -> str:
     if value.startswith(('https://', 'http://', 't.me/')):
         parsed = urlparse(value if '://' in value else 'https://' + value)
         if parsed.hostname not in {'t.me', 'telegram.me'}:
-            raise ValueError('Нужна ссылка t.me или @username')
+            raise ValueError('Скопируйте ссылку на канал из Telegram, например https://t.me/supplier, или укажите @supplier.')
         value = parsed.path.strip('/')
         if '/' in value or value.startswith(('+', 'joinchat')):
-            raise ValueError('Для закрытого канала укажите его числовой ID после вступления аккаунта')
+            raise ValueError('Ссылка на сообщение или приглашение не подходит. Укажите ссылку на сам канал. Для закрытого канала сначала вступите в него и укажите числовой ID вида -1001234567890.')
     if re.fullmatch(r'-100\d{6,}', value):
         return value
     value = value.lstrip('@')
     if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{3,31}', value):
-        raise ValueError('Нужен @username, ссылка t.me/username или числовой ID -100…')
+        raise ValueError('Введите адрес канала: @supplier, https://t.me/supplier или числовой ID вида -1001234567890.')
     return '@' + value.lower()
 
 
@@ -60,7 +60,7 @@ class Settings(BaseModel):
     @classmethod
     def validate_time(cls, value):
         if not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', value):
-            raise ValueError('Время в формате ЧЧ:ММ')
+            raise ValueError('Укажите время в формате ЧЧ:ММ, например 09:00.')
         return value
 
     @field_validator('timezone')
@@ -69,7 +69,7 @@ class Settings(BaseModel):
         try:
             ZoneInfo(value)
         except (ZoneInfoNotFoundError, ValueError):
-            raise ValueError('Неизвестный часовой пояс')
+            raise ValueError('Проверьте название часового пояса. Для московского времени укажите Europe/Moscow.')
         return value
 
 
@@ -82,12 +82,12 @@ class Credentials(BaseModel):
     @classmethod
     def validate_hash(cls, value):
         if value and not re.fullmatch(r'[a-fA-F0-9]{32}', value):
-            raise ValueError('API hash должен содержать 32 шестнадцатеричных символа')
+            raise ValueError('Скопируйте api_hash с my.telegram.org/apps целиком: нужны 32 символа из цифр и букв a–f.')
         return value
 
     @field_validator('bot_token')
     @classmethod
     def validate_token(cls, value):
         if value and not re.fullmatch(r'\d+:[A-Za-z0-9_-]{20,}', value):
-            raise ValueError('Некорректный токен BotFather')
+            raise ValueError('Скопируйте полный токен из ответа BotFather: число, двоеточие и длинная строка символов.')
         return value

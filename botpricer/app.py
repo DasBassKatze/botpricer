@@ -18,6 +18,7 @@ from .parser import preview
 from .pricing import render_offer
 from .runtime import InstanceLock
 from .telegram import Publisher, Reader, TelegramProblem, safe_error
+from .ui_text import validation_message
 from .worker import Worker
 
 
@@ -81,7 +82,7 @@ def create_app(data_dir=None):
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
-        messages = ['.'.join(str(v) for v in error['loc'][1:]) + ': ' + error['msg'] for error in exc.errors()]
+        messages = [validation_message(error) for error in exc.errors()]
         return JSONResponse({'detail': '; '.join(messages)}, status_code=422)
 
     @app.exception_handler(TelegramProblem)
@@ -90,7 +91,7 @@ def create_app(data_dir=None):
 
     def idle():
         if worker.busy:
-            raise HTTPException(409, 'Дождитесь окончания обновления')
+            raise HTTPException(409, 'Сейчас идёт проверка цен. Дождитесь её завершения, затем сохраните изменения ещё раз.')
 
     async def telegram_action(action):
         try:
@@ -116,7 +117,7 @@ def create_app(data_dir=None):
     async def save_settings(settings: Settings):
         idle()
         if settings.auto_publish and not settings.target_channel:
-            raise HTTPException(422, 'Сначала укажите канал публикации')
+            raise HTTPException(422, 'Чтобы включить публикацию, заполните поле «Ваш канал для объявлений» в настройках.')
         db.set_config('settings', settings.model_dump(mode='json'))
         return {'ok': True}
 
@@ -161,7 +162,7 @@ def create_app(data_dir=None):
         async def check():
             client = await reader.get_client()
             if not await client.is_user_authorized():
-                raise TelegramProblem('Войдите в Telegram в разделе «Подключение»')
+                raise TelegramProblem('Откройте «Подключение Telegram» и выполните вход по номеру телефона в шаге 2.')
             from .telegram import resolve_channel
             entity = await resolve_channel(client, sources[0]['address'])
             if not getattr(entity, 'broadcast', False):
@@ -198,13 +199,13 @@ def create_app(data_dir=None):
         changed = (payload.api_id is not None and payload.api_id != creds.get('api_id')) or (payload.api_hash and payload.api_hash != creds.get('api_hash'))
         if changed:
             if db.get_config('reader_authorized', False):
-                raise HTTPException(409, 'Перед сменой API ID/hash отключите аккаунт кнопкой ниже')
+                raise HTTPException(409, 'Чтобы заменить API ID или API hash, сначала нажмите «Отключить аккаунт Telegram» в шаге 2. Затем сохраните новые данные и войдите снова.')
             await reader.close()
         for key, value in payload.model_dump().items():
             if value not in ('', None):
                 creds[key] = value
         if bool(creds.get('api_id')) != bool(creds.get('api_hash')):
-            raise HTTPException(422, 'Укажите API ID и API hash вместе')
+            raise HTTPException(422, 'Для первого подключения заполните API ID и API hash вместе. Оба значения находятся на my.telegram.org/apps.')
         db.set_config('credentials', creds)
         return {'ok': True}
 
